@@ -1,0 +1,2 @@
+env: local
+# migrations_path: './migrations'
