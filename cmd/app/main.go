@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/AtIasShrugged/antisocial/internal/app"
 	"github.com/AtIasShrugged/antisocial/internal/config"
-	"github.com/AtIasShrugged/antisocial/internal/libs/logger/handlers/slogpretty"
+	server "github.com/AtIasShrugged/antisocial/internal/http"
+	"github.com/AtIasShrugged/antisocial/libs/logger/handlers/slogpretty"
 )
 
 const (
@@ -21,7 +21,7 @@ func main() {
 	cfg := config.MustLoad()
 	log := setupLogger(cfg.Env)
 
-	app.Run(log, cfg)
+	server.Run(log, cfg)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
