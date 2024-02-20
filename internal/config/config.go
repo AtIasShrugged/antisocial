@@ -8,7 +8,13 @@ import (
 )
 
 type Config struct {
-	Env string `yaml:"env" env-default:"local"`
+	Env    string       `yaml:"env" env-default:"local"`
+	Server ServerConfig `yaml:"server"`
+}
+
+type ServerConfig struct {
+	Host string `yaml:"host" env:"HOST" env-default:"localhost"`
+	Port string `yaml:"port" env:"PORT" env-default:"3002"`
 }
 
 func MustLoad() *Config {
@@ -36,14 +42,11 @@ func MustLoadPath(configPath string) *Config {
 func fetchConfigPath() string {
 	var res string
 
-	err := cleanenv.ReadEnv(&res)
-	if err != nil {
-		flag.StringVar(&res, "config", "", "path to config file")
-		flag.Parse()
+	flag.StringVar(&res, "config", "", "path to config file")
+	flag.Parse()
 
-		if res == "" {
-			res = os.Getenv("CONFIG_PATH")
-		}
+	if res == "" {
+		res = os.Getenv("CONFIG_PATH")
 	}
 
 	return res

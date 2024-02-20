@@ -1,2 +1,5 @@
 env: local
-# migrations_path: './migrations'
+
+server:
+  host: localhost
+  port: 8080
