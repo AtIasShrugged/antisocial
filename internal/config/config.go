@@ -8,13 +8,23 @@ import (
 )
 
 type Config struct {
-	Env    string       `yaml:"env" env-default:"local"`
-	Server ServerConfig `yaml:"server"`
+	Env    string         `yaml:"env" env-default:"local"`
+	Server ServerConfig   `yaml:"server"`
+	DB     DatabaseConfig `yaml:"database"`
 }
 
 type ServerConfig struct {
-	Host string `yaml:"host" env:"HOST" env-default:"localhost"`
-	Port string `yaml:"port" env:"PORT" env-default:"3002"`
+	Host string `yaml:"host" env-default:"localhost"`
+	Port string `yaml:"port" env-default:"3002"`
+}
+
+type DatabaseConfig struct {
+	Driver string `yaml:"driver"`
+	Host   string `yaml:"host" env-default:"localhost"`
+	Port   string `yaml:"port" env-default:"5432"`
+	User   string `yaml:"user" env-default:"postgres"`
+	Pass   string `yaml:"pass" env-default:"postgres"`
+	Name   string `yaml:"name" env-default:"antisocial"`
 }
 
 func MustLoad() *Config {

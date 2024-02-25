@@ -13,11 +13,11 @@ type PostsRepository interface {
 }
 
 type PostService struct {
-	log  *slog.Logger
 	repo PostsRepository
+	log  *slog.Logger
 }
 
-func NewPostService(log *slog.Logger, repo PostsRepository) *PostService {
+func NewPostService(repo PostsRepository, log *slog.Logger) *PostService {
 	return &PostService{
 		log:  log,
 		repo: repo,
@@ -25,11 +25,9 @@ func NewPostService(log *slog.Logger, repo PostsRepository) *PostService {
 }
 
 func (p *PostService) GetByID(ctx context.Context, id int) (models.Post, error) {
-	p.log.Info("PostService.GetByID", slog.Int("id", id))
 	return p.repo.GetByID(ctx, id)
 }
 
 func (p *PostService) CreatePost(ctx context.Context, post models.Post) (int, error) {
-	p.log.Info("PostService.CreatePost", slog.Int("id", post.ID))
 	return p.repo.CreatePost(ctx, post)
 }

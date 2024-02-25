@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -18,50 +17,53 @@ type PostService interface {
 }
 
 type PostHandler struct {
-	log     *slog.Logger
 	service PostService
+	log     *slog.Logger
 }
 
-func NewPostsController(log *slog.Logger, service PostService) *PostHandler {
+func NewPostsController(service PostService, log *slog.Logger) *PostHandler {
 	return &PostHandler{
-		log:     log,
 		service: service,
+		log:     log,
 	}
 }
 
 func (p *PostHandler) GetByID(c echo.Context) error {
+	const op = "PostHandler.GetByID"
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		p.log.Error("PostHandler.GetByID", err)
+		p.log.Error(op + ":" + err.Error())
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
 	post, err := p.service.GetByID(c.Request().Context(), id)
 	if err != nil {
 		if err.Error() == repo.ErrPostNotFound.Error() {
+			p.log.Error(op + ":" + err.Error())
 			return c.String(http.StatusNotFound, err.Error())
 		}
-		p.log.Error("PostHandler.GetByID", err)
+		p.log.Error(op + ":" + err.Error())
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	p.log.Info("PostHandler.GetByID", slog.Int("id", 1))
 	return c.JSON(http.StatusOK, post)
 }
 
 func (p *PostHandler) CreatePost(c echo.Context) error {
+	const op = "PostHandler.CreatePost"
+
 	var post models.Post
 	if err := c.Bind(&post); err != nil {
-		p.log.Error("PostHandler.CreatePost", err)
+		p.log.Error(op + ":" + err.Error())
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	fmt.Println(post)
 	id, err := p.service.CreatePost(c.Request().Context(), post)
 	if err != nil {
-		p.log.Error("PostHandler.CreatePost", err)
+		p.log.Error(op + ":" + err.Error())
 		return c.JSON(http.StatusBadRequest, err)
 	}
-	p.log.Info("PostHandler.CreatePost", slog.Int("id", id))
+
 	return c.JSON(http.StatusOK, id)
 }
