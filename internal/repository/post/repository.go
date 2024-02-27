@@ -1,30 +1,32 @@
-package repo
+package post_repo
 
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 
 	"github.com/AtIasShrugged/antisocial/internal/domain/models"
 )
 
-type PostRepository struct {
-	conn  *sql.DB
-	log   *slog.Logger
-	store map[int]models.Post
-	idx   int
+type PostRepository interface {
+	GetByID(ctx context.Context, id int) (models.Post, error)
+	Create(ctx context.Context, post models.Post) (int, error)
 }
 
-func NewPostRepository(conn *sql.DB, log *slog.Logger) *PostRepository {
-	return &PostRepository{
-		conn:  conn,
-		log:   log,
-		store: make(map[int]models.Post),
-		idx:   0,
+type Repository struct {
+	conn *sql.DB
+	log  *slog.Logger
+}
+
+func New(conn *sql.DB, log *slog.Logger) *Repository {
+	return &Repository{
+		conn: conn,
+		log:  log,
 	}
 }
 
-func (p *PostRepository) GetByID(ctx context.Context, id int) (models.Post, error) {
+func (p *Repository) GetByID(ctx context.Context, id int) (models.Post, error) {
 	const op = "PostRepository.GetByID"
 
 	query := `SELECT * FROM posts WHERE id = $1`
@@ -32,7 +34,7 @@ func (p *PostRepository) GetByID(ctx context.Context, id int) (models.Post, erro
 	post, err := p.fetch(ctx, query, id)
 	if err != nil {
 		p.log.Error(op + ":" + err.Error())
-		return models.Post{}, err
+		return models.Post{}, fmt.Errorf("can't fetch post: %s", err.Error())
 	}
 
 	if len(post) == 0 {
@@ -43,23 +45,24 @@ func (p *PostRepository) GetByID(ctx context.Context, id int) (models.Post, erro
 	return post[0], nil
 }
 
-func (p *PostRepository) CreatePost(ctx context.Context, post models.Post) (int, error) {
+func (p *Repository) Create(ctx context.Context, post models.Post) (int, error) {
 	const op = "PostRepository.CreatePost"
 
 	query := `INSERT INTO posts (author_id, body) VALUES ($1, $2) RETURNING id`
 	id, err := p.insertAndGetId(ctx, query, post.AuthorID, post.Body)
 	if err != nil {
 		p.log.Error(op + ": " + err.Error())
-		return 0, err
+		return 0, fmt.Errorf("can't insert post: %s", err.Error())
 	}
 
 	return id, nil
 }
 
-func (p *PostRepository) fetch(ctx context.Context, query string, args ...any) ([]models.Post, error) {
+func (p *Repository) fetch(ctx context.Context, query string, args ...any) ([]models.Post, error) {
 	rows, err := p.conn.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		p.log.Error(err.Error())
+		return nil, fmt.Errorf("can't exec query: select posts: %s", err.Error())
 	}
 
 	defer func() {
@@ -73,7 +76,7 @@ func (p *PostRepository) fetch(ctx context.Context, query string, args ...any) (
 	for rows.Next() {
 		post := models.Post{}
 		if err := rows.Scan(&post.ID, &post.AuthorID, &post.Body); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("can't scan post: %s", err.Error())
 		}
 		posts = append(posts, post)
 	}
@@ -85,19 +88,19 @@ func (p *PostRepository) fetch(ctx context.Context, query string, args ...any) (
 	return posts, nil
 }
 
-func (p *PostRepository) insertAndGetId(ctx context.Context, query string, args ...any) (int, error) {
+func (p *Repository) insertAndGetId(ctx context.Context, query string, args ...any) (int, error) {
 	const op = "PostRepository.insertAndGetId"
 
 	stmt, err := p.conn.PrepareContext(ctx, query)
 	if err != nil {
 		p.log.Error(op + ":" + err.Error())
-		return 0, err
+		return 0, fmt.Errorf("can't prepare query: %s", err.Error())
 	}
 
 	res, err := stmt.QueryContext(ctx, args...)
 	if err != nil {
 		p.log.Error(op + ":" + err.Error())
-		return 0, err
+		return 0, fmt.Errorf("can't exec query: insert post and get id: %s", err.Error())
 	}
 
 	defer func() {
@@ -111,7 +114,7 @@ func (p *PostRepository) insertAndGetId(ctx context.Context, query string, args 
 	for res.Next() {
 		if err := res.Scan(&id); err != nil {
 			p.log.Error(op + ":" + err.Error())
-			return 0, err
+			return 0, fmt.Errorf("can't scan post id: %s", err.Error())
 		}
 	}
 	return id, nil

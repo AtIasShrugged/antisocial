@@ -1,4 +1,4 @@
-package handlers
+package post_handler
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 
 type PostService interface {
 	GetByID(ctx context.Context, id int) (models.Post, error)
-	CreatePost(ctx context.Context, post models.Post) (int, error)
+	Create(ctx context.Context, post models.Post) (int, error)
 }
 
 type PostHandler struct {
@@ -21,7 +21,7 @@ type PostHandler struct {
 	log     *slog.Logger
 }
 
-func NewPostsController(service PostService, log *slog.Logger) *PostHandler {
+func New(service PostService, log *slog.Logger) *PostHandler {
 	return &PostHandler{
 		service: service,
 		log:     log,
@@ -50,8 +50,8 @@ func (p *PostHandler) GetByID(c echo.Context) error {
 	return c.JSON(http.StatusOK, post)
 }
 
-func (p *PostHandler) CreatePost(c echo.Context) error {
-	const op = "PostHandler.CreatePost"
+func (p *PostHandler) Create(c echo.Context) error {
+	const op = "PostHandler.Create"
 
 	var post models.Post
 	if err := c.Bind(&post); err != nil {
@@ -59,7 +59,7 @@ func (p *PostHandler) CreatePost(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	id, err := p.service.CreatePost(c.Request().Context(), post)
+	id, err := p.service.Create(c.Request().Context(), post)
 	if err != nil {
 		p.log.Error(op + ":" + err.Error())
 		return c.JSON(http.StatusBadRequest, err)
