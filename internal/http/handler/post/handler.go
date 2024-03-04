@@ -2,6 +2,7 @@ package post_handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -39,12 +40,12 @@ func (p *PostHandler) GetByID(c echo.Context) error {
 
 	post, err := p.service.GetByID(c.Request().Context(), id)
 	if err != nil {
-		if err.Error() == repo.ErrPostNotFound.Error() {
+		if errors.Is(err, repo.ErrPostNotFound) {
 			p.log.Error(op + ":" + err.Error())
 			return c.String(http.StatusNotFound, err.Error())
 		}
 		p.log.Error(op + ":" + err.Error())
-		return c.JSON(http.StatusBadRequest, err)
+		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, post)

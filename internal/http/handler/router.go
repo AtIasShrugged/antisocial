@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 
@@ -10,6 +9,7 @@ import (
 	post_handler "github.com/AtIasShrugged/antisocial/internal/http/handler/post"
 	post_repo "github.com/AtIasShrugged/antisocial/internal/repository/post"
 	"github.com/AtIasShrugged/antisocial/internal/service/post"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -20,14 +20,14 @@ func Router(ctx context.Context, log *slog.Logger, cfg *config.Config) (*echo.Ec
 	e.Use(middleware.Recover())
 
 	dsn := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", cfg.DB.Driver, cfg.DB.User, cfg.DB.Pass, cfg.DB.Host, cfg.DB.Port, cfg.DB.Name)
-	dbConn, err := sql.Open(cfg.DB.Driver, dsn)
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		log.Error("Failed to open DB connection: "+err.Error(), err)
 		return nil, err
 	}
 	log.Info(fmt.Sprintf("Connected to %s on port %s", cfg.DB.Driver, cfg.DB.Port))
 
-	postRepo := post_repo.New(dbConn, log)
+	postRepo := post_repo.New(pool, log)
 
 	postService := post.New(postRepo, log)
 

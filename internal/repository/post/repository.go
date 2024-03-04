@@ -2,11 +2,12 @@ package post_repo
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 
 	"github.com/AtIasShrugged/antisocial/internal/domain/models"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type PostRepository interface {
@@ -15,107 +16,63 @@ type PostRepository interface {
 }
 
 type Repository struct {
-	conn *sql.DB
-	log  *slog.Logger
+	db  *pgxpool.Pool
+	log *slog.Logger
 }
 
-func New(conn *sql.DB, log *slog.Logger) *Repository {
+func New(pool *pgxpool.Pool, log *slog.Logger) *Repository {
 	return &Repository{
-		conn: conn,
-		log:  log,
+		db:  pool,
+		log: log,
 	}
 }
 
-func (p *Repository) GetByID(ctx context.Context, id int) (models.Post, error) {
+func (r *Repository) GetByID(ctx context.Context, id int) (models.Post, error) {
 	const op = "PostRepository.GetByID"
 
 	query := `SELECT * FROM posts WHERE id = $1`
+	row := r.db.QueryRow(ctx, query, id)
 
-	post, err := p.fetch(ctx, query, id)
+	var post models.Post
+	err := row.Scan(&post.ID, &post.AuthorID, &post.Body)
 	if err != nil {
-		p.log.Error(op + ":" + err.Error())
-		return models.Post{}, fmt.Errorf("can't fetch post: %s", err.Error())
+		if err == pgx.ErrNoRows {
+			r.log.Error(op + ":" + err.Error())
+			return models.Post{}, ErrPostNotFound
+		}
+		r.log.Error(op + ":" + err.Error())
+		return models.Post{}, fmt.Errorf("can't scan post: %s", err.Error())
 	}
 
-	if len(post) == 0 {
-		p.log.Error(op, ErrPostNotFound)
-		return models.Post{}, ErrPostNotFound
-	}
-
-	return post[0], nil
+	return post, nil
 }
 
-func (p *Repository) Create(ctx context.Context, post models.Post) (int, error) {
-	const op = "PostRepository.CreatePost"
+func (r *Repository) Create(ctx context.Context, post models.Post) (int, error) {
+	const op = "PostRepository.Create"
+
+	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		r.log.Error(op + ":" + err.Error())
+		return 0, fmt.Errorf("can't create transaction: %s", err.Error())
+	}
 
 	query := `INSERT INTO posts (author_id, body) VALUES ($1, $2) RETURNING id`
-	id, err := p.insertAndGetId(ctx, query, post.AuthorID, post.Body)
+	var id int
+	err = tx.QueryRow(ctx, query, post.AuthorID, post.Body).Scan(&id)
 	if err != nil {
-		p.log.Error(op + ": " + err.Error())
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr != nil {
+			r.log.Error(op + ":" + rollbackErr.Error())
+			return 0, fmt.Errorf("can't rollback transaction: %s", rollbackErr.Error())
+		}
+		r.log.Error(op + ":" + err.Error())
 		return 0, fmt.Errorf("can't insert post: %s", err.Error())
 	}
 
-	return id, nil
-}
-
-func (p *Repository) fetch(ctx context.Context, query string, args ...any) ([]models.Post, error) {
-	rows, err := p.conn.QueryContext(ctx, query, args...)
-	if err != nil {
-		p.log.Error(err.Error())
-		return nil, fmt.Errorf("can't exec query: select posts: %s", err.Error())
+	if err := tx.Commit(ctx); err != nil {
+		r.log.Error(op + ":" + err.Error())
+		return 0, fmt.Errorf("can't commit transaction: %s", err.Error())
 	}
 
-	defer func() {
-		err = rows.Close()
-		if err != nil {
-			p.log.Error(err.Error())
-		}
-	}()
-
-	posts := make([]models.Post, 0)
-	for rows.Next() {
-		post := models.Post{}
-		if err := rows.Scan(&post.ID, &post.AuthorID, &post.Body); err != nil {
-			return nil, fmt.Errorf("can't scan post: %s", err.Error())
-		}
-		posts = append(posts, post)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return posts, nil
-}
-
-func (p *Repository) insertAndGetId(ctx context.Context, query string, args ...any) (int, error) {
-	const op = "PostRepository.insertAndGetId"
-
-	stmt, err := p.conn.PrepareContext(ctx, query)
-	if err != nil {
-		p.log.Error(op + ":" + err.Error())
-		return 0, fmt.Errorf("can't prepare query: %s", err.Error())
-	}
-
-	res, err := stmt.QueryContext(ctx, args...)
-	if err != nil {
-		p.log.Error(op + ":" + err.Error())
-		return 0, fmt.Errorf("can't exec query: insert post and get id: %s", err.Error())
-	}
-
-	defer func() {
-		err = res.Close()
-		if err != nil {
-			p.log.Error(op + ":" + err.Error())
-		}
-	}()
-
-	var id int
-	for res.Next() {
-		if err := res.Scan(&id); err != nil {
-			p.log.Error(op + ":" + err.Error())
-			return 0, fmt.Errorf("can't scan post id: %s", err.Error())
-		}
-	}
 	return id, nil
 }

@@ -27,7 +27,7 @@ func (p *PostService) GetByID(ctx context.Context, id int) (models.Post, error) 
 	post, err := p.repo.GetByID(ctx, id)
 	if err != nil {
 		p.log.Error(op+": "+err.Error(), err)
-		return models.Post{}, fmt.Errorf("error from post_repository: %s", err.Error())
+		return models.Post{}, err
 	}
 	return post, nil
 }
