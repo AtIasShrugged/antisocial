@@ -3,6 +3,7 @@ package post_handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -35,7 +36,7 @@ func (p *PostHandler) GetByID(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		p.log.Error(op + ":" + err.Error())
-		return c.JSON(http.StatusBadRequest, err)
+		return c.JSON(http.StatusBadRequest, fmt.Errorf("bad params: %w", err).Error())
 	}
 
 	post, err := p.service.GetByID(c.Request().Context(), id)
@@ -57,13 +58,13 @@ func (p *PostHandler) Create(c echo.Context) error {
 	var post models.Post
 	if err := c.Bind(&post); err != nil {
 		p.log.Error(op + ":" + err.Error())
-		return c.JSON(http.StatusBadRequest, err)
+		return c.JSON(http.StatusBadRequest, fmt.Errorf("bad json: %w", err).Error())
 	}
 
 	id, err := p.service.Create(c.Request().Context(), post)
 	if err != nil {
 		p.log.Error(op + ":" + err.Error())
-		return c.JSON(http.StatusBadRequest, err)
+		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, id)

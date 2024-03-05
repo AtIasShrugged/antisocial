@@ -3,7 +3,6 @@ package post
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -62,7 +61,7 @@ func TestGetByIDError(t *testing.T) {
 	post, err := service.GetByID(ctx, in)
 	require.Error(t, err)
 	require.EqualError(t,
-		fmt.Errorf("error from post_repository: %s", repoErr.Error()),
+		repoErr,
 		err.Error(),
 	)
 	require.Equal(t, expected, post)
@@ -108,7 +107,7 @@ func TestCreateError(t *testing.T) {
 	id, err := service.Create(ctx, in)
 	require.Error(t, err)
 	require.EqualError(t,
-		fmt.Errorf("error from post_repository: %s", repoErr),
+		repoErr,
 		err.Error(),
 	)
 	require.Equal(t, 0, id)

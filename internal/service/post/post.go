@@ -2,7 +2,6 @@ package post
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/AtIasShrugged/antisocial/internal/domain/models"
@@ -38,7 +37,7 @@ func (p *PostService) Create(ctx context.Context, post models.Post) (int, error)
 	id, err := p.repo.Create(ctx, post)
 	if err != nil {
 		p.log.Error(op+": "+err.Error(), err)
-		return 0, fmt.Errorf("error from post_repository: %s", err.Error())
+		return 0, err
 	}
 	return id, nil
 }
